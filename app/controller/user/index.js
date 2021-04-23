@@ -1,7 +1,7 @@
 /*
  * @Author: lts
  * @Date: 2021-03-31 11:09:26
- * @LastEditTime: 2021-04-05 18:21:28
+ * @LastEditTime: 2021-04-21 17:37:10
  * @FilePath: \teach-research-server\app\controller\user\index.js
  */
 'use strict';
@@ -11,8 +11,8 @@ const Controller = require('egg').Controller;
 class UserController extends Controller {
   async getAllUsers() {
     const { ctx } = this;
-    console.log(ctx.state.user);
-    const allUsers = await ctx.service.user.findAll();
+    const params = ctx.query;
+    const allUsers = await ctx.service.user.findAll(params);
     ctx.body = {
       code: 200,
       data: allUsers,
@@ -26,6 +26,7 @@ class UserController extends Controller {
       ctx.body = {
         code: 200,
         data: {
+          id: ret.insertId,
           username: sign.username,
           phone: sign.phone,
           job_id: sign.job_id,
@@ -43,13 +44,14 @@ class UserController extends Controller {
     const { ctx, app } = this;
     const loginInfo = ctx.request.body;
     const ret = await ctx.service.user.login(loginInfo);
-    console.log(ret);
     if (ret.id) {
       const token = app.jwt.sign({
+        id: ret.id,
         job_id: loginInfo.job_id,
         role_id: ret.role_id,
       }, app.config.jwt.secret);
-      ctx.body = {
+      // eslint-disable-next-line no-return-assign
+      return ctx.body = {
         code: 200,
         data: {
           ...ret,
@@ -57,6 +59,10 @@ class UserController extends Controller {
         },
       };
     }
+    ctx.body = {
+      code: 200,
+      data: { ...ret },
+    };
 
   }
   async getUserById() {
