@@ -58,7 +58,7 @@ module.exports = appInfo => {
     csrf: {
       enable: false,
     },
-    domainWhiteList: [ '*' ],
+    domainWhiteList: ['*'],
   };
   config.cors = {
     origin: '*',
@@ -66,6 +66,16 @@ module.exports = appInfo => {
   };
   config.jwt = {
     secret: '123456lts',
+  };
+  config.multipart = {
+    mode: 'file',
+    fileSize: '10mb',
+    fileExtensions: [
+      '.docx',
+      '.doc',
+      'txt',
+      'md',
+    ],
   };
   return {
     ...config,

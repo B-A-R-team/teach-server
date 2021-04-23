@@ -15,4 +15,5 @@ module.exports = app => {
   require('./router/room')(app);
   require('./router/commit')(app);
   require('./router/role')(app);
+  require('./router/upload')(app);
 };

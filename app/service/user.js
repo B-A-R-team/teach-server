@@ -57,12 +57,9 @@ class UserService extends Service {
         password = md5(password + secret);
         const ret = await this.app.mysql.select('user', {
             where: { job_id, password },
-            columns: ['name', 'job_id', 'phone', 'avatar', 'role_id', 'id'],
+            columns: ['name', 'job_id', 'phone', 'avatar', 'role_id', 'id', 'room_id'],
             limit: 0, // 返回数据量
         });
-        // const ret = await this.app.mysql.get('user', {
-        //     id: 1,
-        // });
         console.log(ret);
         if (ret.length > 0) {
             return ret[0];
