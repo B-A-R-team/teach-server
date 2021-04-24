@@ -13,4 +13,5 @@ module.exports = app => {
   router.post('/user/login', controller.user.index.login);
   router.get('/user/getUserById', controller.user.index.getUserById);
   router.get('/user/getUsersByRoomId', jwt, controller.user.index.getUsersByRoomId);
+  router.put('/user/update', jwt, controller.user.index.updateUserInfo);
 };

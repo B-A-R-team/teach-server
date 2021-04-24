@@ -12,14 +12,18 @@ const Service = require('egg').Service;
 class RoomService extends Service {
     async findAllRoom(params) {
         const { startNum, pageSize } = params;
-        const ret = this.app.mysql.select('teach_room',
+        const roomNum = await this.app.mysql.query('select count(*) as length from teach_room');
+        const ret = await this.app.mysql.select('teach_room',
             {
                 orders: [['create_time', 'desc']],
                 limit: parseInt(pageSize),
                 offset: parseInt(startNum),
             }
         );
-        return ret;
+        return {
+            rooms: ret,
+            length: roomNum[0].length,
+        };
     }
     async createRoom(params) {
         let { name, director_id, f_director_id } = params;

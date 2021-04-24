@@ -27,12 +27,13 @@ left join role on  user.role_id=role.id  `;
 class UserService extends Service {
     async findAll(params) {
         const { startNum, pageSize } = params;
+        const roomNum = await this.app.mysql.query('select count(*) as length from user');
         const sql = `select 
         ${sqlTemp}
         limit ${startNum},${pageSize}
         `;
         const users = await this.app.mysql.query(sql);
-        return users;
+        return { users, length: roomNum[0].length };
     }
     async register(info) {
         const { username, password, job_id, phone } = info;
@@ -57,11 +58,25 @@ class UserService extends Service {
         password = md5(password + secret);
         const ret = await this.app.mysql.select('user', {
             where: { job_id, password },
+            // eslint-disable-next-line array-bracket-spacing
             columns: ['name', 'job_id', 'phone', 'avatar', 'role_id', 'id', 'room_id'],
             limit: 0, // 返回数据量
         });
-        console.log(ret);
         if (ret.length > 0) {
+            const room = await this.app.mysql.select('teach_room', {
+                where: { id: ret[0].room_id },
+                // eslint-disable-next-line array-bracket-spacing
+                columns: ['id', 'name'],
+            });
+            const roleInfo = await this.app.mysql.select('role', {
+                where: { id: ret[0].role_id },
+                // eslint-disable-next-line array-bracket-spacing
+                columns: ['id', 'name', 'value', 'role_menu'],
+            });
+            ret[0].role = roleInfo[0];
+            ret[0].room = room[0];
+            delete ret[0].room_id;
+            delete ret[0].role_id;
             return ret[0];
         }
         return {
@@ -80,6 +95,36 @@ class UserService extends Service {
         const ret = await app.mysql.query(sql);
         console.log(ret);
         return ret;
+    }
+    async updateUserInfo(params) {
+        const { app, ctx } = this;
+        let { id, phone, avatar, gender } = params;
+        id = parseInt(id);
+        gender = parseInt(gender);
+        const token_user_id = ctx.state.user.id;
+        if (id === token_user_id) {
+            const ret = await app.mysql.update('user', {
+                id,
+                phone,
+                avatar,
+                gender,
+            });
+            if (ret.affectedRows === 1) {
+                return {
+                    ...params,
+                    id,
+                    gender,
+                    msg: '修改成功',
+                };
+            }
+            return {
+                msg: '修改失败，请检查id',
+            };
+        }
+        return {
+            msg: '请不要做出这种行为',
+        };
+
     }
 }
 

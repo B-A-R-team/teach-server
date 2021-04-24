@@ -16,4 +16,5 @@ module.exports = app => {
   require('./router/commit')(app);
   require('./router/role')(app);
   require('./router/upload')(app);
+  require('./router/swiper')(app);
 };

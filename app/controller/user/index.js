@@ -102,6 +102,15 @@ class UserController extends Controller {
       };
     }
   }
+  async updateUserInfo() {
+    const { ctx } = this;
+    const params = ctx.request.body;
+    const ret = await ctx.service.user.updateUserInfo(params);
+    ctx.body = {
+      code: 200,
+      data: ret,
+    };
+  }
 }
 
 module.exports = UserController;
