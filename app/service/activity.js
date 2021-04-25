@@ -1,3 +1,4 @@
+/* eslint-disable array-bracket-spacing */
 /* eslint-disable indent */
 /*
  * @Author: lts
@@ -8,6 +9,7 @@
 'use strict';
 
 const Service = require('egg').Service;
+const path = require('path');
 const temp = `
             activity.id as id,
             activity.leader_id as leader_id,
@@ -28,6 +30,15 @@ const temp = `
             left join user on  user.id=activity.leader_id  
             left join teach_room on  activity.room_id=teach_room.id  
         `;
+const swiperWhitelist = [
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.gif',
+    '.wbmp',
+    '.webp',
+    '.svg',
+];
 function changeRet(ret) {
     ret.forEach(item => {
         const { leader_id, avatar, username, role_id, job_id, phone, room_id, room_name } = item;
@@ -163,7 +174,7 @@ class ActiveService extends Service {
             content='${content}',
             files='${files}',
             start_time='${start_time}',
-            end_time='${end_time}' where id=${id}
+            end_time='${end_time}' where id=${id} and advance=0
         `;
         const ret = await this.app.mysql.query(sql);
         // const ret = await this.app.mysql.update('active', row);
@@ -177,6 +188,7 @@ class ActiveService extends Service {
             msg: '修改失败',
         };
     }
+    // 预发布活动
     async createActive(activeInfo) {
         const { title, content, files, start_time, leader_id, room_id, join_users, end_time } = activeInfo;
         const ret = await this.app.mysql.insert('activity', {
@@ -193,6 +205,8 @@ class ActiveService extends Service {
             return {
                 id: ret.insertId,
                 ...activeInfo,
+                room_id: parseInt(room_id),
+                leader_id: parseInt(leader_id),
             };
         }
         return {
@@ -285,16 +299,32 @@ class ActiveService extends Service {
         };
     }
     async getPersonActives(params) {
-        let { user_id, room_id } = params;
+        let { user_id, room_id, advance } = params;
         user_id = parseInt(user_id);
         room_id = parseInt(room_id);
         const { app } = this;
-        const ret = await app.mysql.select('activity', {
-            where: { room_id },
-        });
+        let ret;
+        if (advance !== undefined && advance !== null) {
+            ret = await app.mysql.select('activity', {
+                where: {
+                    room_id,
+                    advance,
+                },
+                orders: [['start_time', 'desc']],
+            });
+        } else {
+            ret = await app.mysql.select('activity', {
+                where: {
+                    room_id,
+                },
+                orders: [['start_time', 'desc']],
+            });
+        }
         if (ret) {
             const myArr = [];
-            ret.forEach(item => {
+            let record_files;
+            ret.forEach((item, index) => {
+                const num = index % 5;
                 let join_users;
                 try {
                     join_users = JSON.parse(item.join_users);
@@ -304,6 +334,17 @@ class ActiveService extends Service {
 
                 const flag = join_users.some(users => users.user_id === user_id);
                 flag && myArr.push(item);
+                const myFile = [{ id: -1, filePath: `/public/swiper/${num + 1}.jpg` }];
+                record_files = item.record_files ? JSON.parse(item.record_files) : myFile;
+                record_files.forEach(fileItem => {
+                    if (swiperWhitelist.some(whiteItem => whiteItem === path.extname(fileItem.filePath)) && myFile.length <= 1) {
+                        myFile.push(fileItem);
+                        return;
+                    }
+                });
+                item.img = [myFile.pop()];
+                delete item.record_files;
+
             });
             return myArr;
         }
