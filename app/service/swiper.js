@@ -34,7 +34,7 @@ class SwiperService extends Service {
                         return;
                     }
                 });
-                item.swiper = [myFile.pop()];
+                item.swiper = myFile.pop();
                 delete item.record_files;
             });
         }

@@ -11,19 +11,20 @@ const Service = require('egg').Service;
 const md5 = require('md5');
 const secret = '123456';
 const sqlTemp = `
-user.id as id,
-user.name as name,
-user.phone as phone,
-user.avatar as avatar,
-user.job_id as job_id,
-DATE_FORMAT(user.create_time,'%Y-%m-%d %H:%i:%s' ) as create_time,
-teach_room.id as room_id,
-teach_room.name as room_name,
-role.id as role_id,
-role.name as role_name
-from user
-left join teach_room on  user.room_id=teach_room.id
-left join role on  user.role_id=role.id  `;
+        user.id as id,
+        user.name as name,
+        user.phone as phone,
+        user.avatar as avatar,
+        user.gender as gender,
+        user.job_id as job_id,
+        DATE_FORMAT(user.create_time,'%Y-%m-%d %H:%i:%s' ) as create_time,
+        teach_room.id as room_id,
+        teach_room.name as room_name,
+        role.id as role_id,
+        role.name as role_name
+        from user
+        left join teach_room on  user.room_id=teach_room.id
+        left join role on  user.role_id=role.id  `;
 class UserService extends Service {
     async findAll(params) {
         const { startNum, pageSize } = params;

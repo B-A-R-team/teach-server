@@ -6,7 +6,7 @@ const { Service } = require('egg');
 class UploadService extends Service {
     async saveRecord(params) {
         const { app } = this;
-        let { active_id, user_id, filePath } = params;
+        let { active_id, user_id, filePath, oldFilename } = params;
         active_id = parseInt(active_id);
         user_id = parseInt(user_id);
         const active = await app.mysql.get('activity', { id: active_id });
@@ -20,7 +20,9 @@ class UploadService extends Service {
             const files = JSON.parse(active.record_files || '[]');
             files.push({
                 user_id,
+                username: user.name,
                 filePath,
+                oldFilename,
             });
             const saveRet = await app.mysql.update('activity', {
                 id: active_id,

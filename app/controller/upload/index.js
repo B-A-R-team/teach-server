@@ -26,6 +26,7 @@ class UploadController extends Controller {
                 msg: '请选择文件',
             };
         }
+        const oldFilename = file.filename;
         const filename = `act-${active_id}--u_id-${user_id}--` + Date.now() + path.extname(file.filename).toLocaleLowerCase();
         const filePath = `/public/upload/active-record/${filename}`;
         try {
@@ -35,7 +36,7 @@ class UploadController extends Controller {
         } catch (error) {
             return ctx.body = { code: 200, data: error };
         }
-        const ret = await ctx.service.upload.saveRecord({ ...params, filePath });
+        const ret = await ctx.service.upload.saveRecord({ ...params, filePath, oldFilename });
         ctx.body = { code: 200, data: ret };
     }
     async uploadAvatar() {

@@ -13,6 +13,7 @@ module.exports = app => {
   router.get('/active/getActiveById/', controller.activity.index.getActiveById);
   router.get('/active/perActive/', jwt, controller.activity.index.getPersonActives);
   router.get('/active/advance', jwt, controller.activity.index.getAdvanceByUserId);
+  router.get('/active/getActivesByTime', controller.activity.index.getActivesByDay);
   router.post('/active/createActive', jwt, controller.activity.index.createActive);
   router.post('/active/issueAdvance', jwt, controller.activity.index.issueAdvance);
   router.delete('/active/deleteActiveById', jwt, controller.activity.index.deleteActiveById);

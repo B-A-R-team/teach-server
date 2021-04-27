@@ -97,6 +97,15 @@ class ActiveController extends Controller {
       data: ret,
     };
   }
+  async getActivesByDay() {
+    const { ctx } = this;
+    const { time } = ctx.query;
+    const ret = await ctx.service.activity.getActivesByDay(time);
+    ctx.body = {
+      code: 200,
+      data: ret,
+    }
+  }
 }
 
 module.exports = ActiveController;

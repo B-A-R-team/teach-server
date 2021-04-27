@@ -19,6 +19,8 @@ const temp = `
             FROM_UNIXTIME(activity.start_time/1000,'%Y-%m-%d %H:%i:%s') as start_time,
             FROM_UNIXTIME(activity.end_time/1000,'%Y-%m-%d %H:%i:%s') as end_time,
             activity.advance as advance,
+            activity.record_files as record_files,
+            activity.files as files,
             user.name AS username,
             user.avatar as avatar,
             user.role_id as role_id,
@@ -112,19 +114,9 @@ class ActiveService extends Service {
             switch (params.type) {
                 case 'act':
                     sql = `
-                            select activity.leader_id as leader_id,
-                            activity.content as content,
-                            activity.title as title,
-                            activity.join_users as join_users,
-                            FROM_UNIXTIME(activity.start_time/1000,'%Y-%m-%d %H:%i:%s') as start_time,
-                            FROM_UNIXTIME(activity.end_time/1000,'%Y-%m-%d %H:%i:%s') as end_time,
-                            activity.room_id as room_id,
-                            user.name AS username,
-                            user.avatar as avatar,
-                            user.role_id as role_id,
-                            user.job_id as job_id,
-                            user.phone as phone
-                            from activity left join user on  user.id=activity.leader_id  where activity.id=${params.id}
+                            select
+                            ${temp}
+                            where activity.id=${params.id}
                             `;
                     break;
                 case 'room':
@@ -139,6 +131,17 @@ class ActiveService extends Service {
                 ret = await this.app.mysql.query(sql);
                 if (params.type === 'act' && ret.length > 0) {
                     ret = ret[0];
+                    const record_files = JSON.parse(ret.record_files || '[]');
+                    const imgArr = [];
+                    const otherArr = [];
+                    record_files.forEach(item => {
+                        if (swiperWhitelist.some(imgItem => path.extname(item.filePath) === imgItem)) {
+                            imgArr.push(item);
+                            return;
+                        }
+                        otherArr.push(item);
+                        return;
+                    });
                     const { leader_id, avatar, username, role_id, job_id, phone } = ret;
                     ret.leader = {
                         id: leader_id,
@@ -148,12 +151,16 @@ class ActiveService extends Service {
                         job_id,
                         phone,
                     };
+                    ret.record_imgs = imgArr;
+                    ret.record_other = otherArr;
                     delete ret.leader_id;
                     delete ret.avatar;
                     delete ret.username;
                     delete ret.role_id;
                     delete ret.job_id;
                     delete ret.phone;
+                    delete ret.advance;
+                    delete ret.record_files;
                 } else if (ret.length === 0) {
                     return {
                         msg: '暂无活动',
@@ -166,6 +173,7 @@ class ActiveService extends Service {
         }
         return { error: '请传入正确参数' };
     }
+    // 更新预发布的活动
     async updateActiveById(activeInfo) {
         const { id, title, content, files, start_time, end_time } = activeInfo;
         const sql = `
@@ -213,10 +221,10 @@ class ActiveService extends Service {
             msg: '异常',
         };
     }
+    // 删除预发布的活动
     async deleteActiveById(id) {
         const { app } = this;
         const currInfo = await app.mysql.get('activity', { id });
-        console.log(currInfo);
         if (currInfo && currInfo.leader_id) {
             if (currInfo.advance === 0) {
                 const ret = await app.mysql.delete('activity', { id: currInfo.id });
@@ -238,6 +246,7 @@ class ActiveService extends Service {
             msg: '删除失败',
         };
     }
+    // 获取活动发起者的预发布活动
     async getAdvanceByUserId() {
         const { ctx, app } = this;
         const { id, role_id } = ctx.state.user;
@@ -259,6 +268,7 @@ class ActiveService extends Service {
             msg: '权限不足',
         };
     }
+    // 发布预发布的活动
     async issueAdvance(id) {
         const { ctx, app } = this;
         const { role_id } = ctx.state.user;
@@ -298,6 +308,7 @@ class ActiveService extends Service {
             msg: '没有权限',
         };
     }
+    // 获取个人活动
     async getPersonActives(params) {
         let { user_id, room_id, advance } = params;
         user_id = parseInt(user_id);
@@ -353,8 +364,12 @@ class ActiveService extends Service {
         };
 
     }
+    // 赞同或则返货活动。
     async agreeActive(params) {
-        const { user_id, active_id, is_agree } = params;
+        let { user_id, active_id, is_agree } = params;
+        if (typeof is_agree === 'string') {
+            is_agree = JSON.parse(is_agree);
+        }
         const { app } = this;
         const ret = await app.mysql.select('activity', {
             where: {
@@ -364,11 +379,10 @@ class ActiveService extends Service {
             columns: ['join_users'],
         });
         if (ret[0]) {
-            // console.log(ret[0].join_users)
             const join_users = JSON.parse(ret[0].join_users);
             join_users.forEach(item => {
                 if (item.user_id === parseInt(user_id)) {
-                    item.is_ok = (is_agree === 'true');
+                    item.is_ok = is_agree;
                 }
             });
             const agree = await app.mysql.update('activity', {
@@ -376,7 +390,7 @@ class ActiveService extends Service {
                 join_users: JSON.stringify(join_users),
             });
             if (agree.affectedRows === 1) {
-                if (is_agree === 'true') {
+                if (is_agree) {
                     return {
                         msg: '赞同此活动',
                     };
@@ -392,6 +406,32 @@ class ActiveService extends Service {
         // const ret = await app.mysql.update
         return {
             msg: '请检查活动是否是预发布',
+        };
+    }
+    // 根据某一天获取当天所有的活动
+    async getActivesByDay(time) {
+        const { app } = this;
+        time = time || 1;
+        const sql = `
+            select
+            activity.id as id,
+            activity.title as title,
+            FROM_UNIXTIME(activity.start_time/1000,'%Y-%m-%d %H:%i:%s') as start_time,
+            FROM_UNIXTIME(activity.end_time/1000,'%Y-%m-%d %H:%i:%s') as end_time,
+            user.name AS username,
+            user.avatar as avatar,
+            teach_room.name as room_name
+            from activity 
+            left join user on  user.id=activity.leader_id  
+            left join teach_room on  activity.room_id=teach_room.id  
+            where activity.start_time <= ${time} and  activity.end_time >= ${time} and advance=1
+        `;
+        const ret = await app.mysql.query(sql);
+        if (ret) {
+            return ret;
+        }
+        return {
+            msg: '参数错误',
         };
     }
 }
