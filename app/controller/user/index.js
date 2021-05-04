@@ -48,7 +48,7 @@ class UserController extends Controller {
       const token = app.jwt.sign({
         id: ret.id,
         job_id: loginInfo.job_id,
-        role_id: ret.role_id,
+        role_id: ret.role.id,
       }, app.config.jwt.secret);
       // eslint-disable-next-line no-return-assign
       return ctx.body = {
@@ -69,7 +69,6 @@ class UserController extends Controller {
     const { ctx } = this;
     const { id } = ctx.query;
     const ret = await ctx.service.user.findOneById(id);
-    console.log(ret);
     if (ret) {
       ctx.body = {
         code: 200,

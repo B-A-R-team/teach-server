@@ -51,7 +51,6 @@ class UserService extends Service {
                 job_id,
                 phone,
             });
-        console.log(ret);
         return ret;
     }
     async login(loginInfo) {
@@ -60,7 +59,7 @@ class UserService extends Service {
         const ret = await this.app.mysql.select('user', {
             where: { job_id, password },
             // eslint-disable-next-line array-bracket-spacing
-            columns: ['name', 'job_id', 'phone', 'avatar', 'role_id', 'id', 'room_id'],
+            columns: ['name', 'job_id', 'phone', 'avatar', 'role_id', 'id', 'room_id', 'gender'],
             limit: 0, // 返回数据量
         });
         if (ret.length > 0) {
@@ -86,7 +85,6 @@ class UserService extends Service {
     }
     async findOneById(id) {
         const ret = await this.app.mysql.get('user', { id });
-        console.log(ret);
         return ret;
     }
     async findUsersByRoomId(id) {
@@ -94,7 +92,6 @@ class UserService extends Service {
         const { role_id } = ctx.state.user;
         const sql = `select ${sqlTemp} where room_id=${id} and role_id <= ${role_id}`;
         const ret = await app.mysql.query(sql);
-        console.log(ret);
         return ret;
     }
     async updateUserInfo(params) {

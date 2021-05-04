@@ -26,7 +26,8 @@ class SwiperService extends Service {
         if (ret) {
             let record_files;
             ret.forEach((item, index) => {
-                const myFile = [{ id: -1, filePath: `/public/swiper/${index + 1}.jpg` }];
+                const num = index % 5;
+                const myFile = [{ id: -1, filePath: `/public/swiper/${num + 1}.jpg` }];
                 record_files = item.record_files ? JSON.parse(item.record_files) : myFile;
                 record_files.forEach(fileItem => {
                     if (swiperWhitelist.some(whiteItem => whiteItem === path.extname(fileItem.filePath)) && myFile.length <= 1) {

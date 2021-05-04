@@ -18,7 +18,6 @@ module.exports = options => {
                 ctx.state.user = decode;
                 await next();
             } catch (error) {
-                console.log(111);
                 ctx.status = 401;
                 ctx.body = {
                     code: ctx.status,

@@ -256,6 +256,7 @@ class ActiveService extends Service {
                     leader_id: id,
                     advance: 0,
                 },
+                orders: [['start_time', 'desc']],
             });
             if (ret) {
                 return ret;
@@ -277,7 +278,7 @@ class ActiveService extends Service {
                 id,
             });
             if (ret.id && ret.advance === 0) {
-                const join_users = JSON.parse(ret.join_users);
+                const join_users = JSON.parse(ret.join_users || '[]');
                 let trueNum = 0;
                 join_users.forEach(item => {
                     if (item.is_ok) {
@@ -338,7 +339,7 @@ class ActiveService extends Service {
                 const num = index % 5;
                 let join_users;
                 try {
-                    join_users = JSON.parse(item.join_users);
+                    join_users = JSON.parse(item.join_users || '[]');
                 } catch (error) {
                     join_users = [{ msg: '数据出错' }];
                 }
