@@ -110,6 +110,23 @@ class UserController extends Controller {
       data: ret,
     };
   }
+  async findLikeAllUsers() {
+    const { ctx } = this;
+    const params = ctx.query;
+    const ret = await ctx.service.user.findLikeAllUsers(params);
+    ctx.body = {
+      code: 200,
+      data: ret,
+    };
+  }
+  async getNoRoomUsers() {
+    const { ctx } = this;
+    const ret = await ctx.service.user.findNoRoomUsers();
+    ctx.body = {
+      code: 200,
+      data: ret,
+    };
+  }
 }
 
 module.exports = UserController;

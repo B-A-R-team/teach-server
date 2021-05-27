@@ -19,8 +19,8 @@ class ActiveController extends Controller {
   }
   async getActivesByType() {
     const { ctx } = this;
-    const { type } = ctx.query;
-    const ret = await ctx.service.activity.getActivesByType(type);
+    const params = ctx.query;
+    const ret = await ctx.service.activity.getActivesByType(params);
     ctx.body = {
       code: 200,
       data: ret,
@@ -104,7 +104,7 @@ class ActiveController extends Controller {
     ctx.body = {
       code: 200,
       data: ret,
-    }
+    };
   }
 }
 

@@ -15,6 +15,7 @@ const temp = `
             activity.leader_id as leader_id,
             activity.content as content,
             activity.title as title,
+            activity.place as place,
             activity.join_users as join_users,
             FROM_UNIXTIME(activity.start_time/1000,'%Y-%m-%d %H:%i:%s') as start_time,
             FROM_UNIXTIME(activity.end_time/1000,'%Y-%m-%d %H:%i:%s') as end_time,
@@ -79,20 +80,27 @@ class ActiveService extends Service {
         }
         return ret;
     }
-    async getActivesByType(type) {
+    async getActivesByType({ type, current_page, page_size }) {
         const { app } = this;
         const time = Date.now();
-        let ret;
+        const start_num = (current_page - 1) * page_size;
+        let ret = null;
         let sql = '';
         switch (type) {
             case 'will':
-                sql = `select ${temp} where start_time > ${time} and advance=1`;
-                break;
-            case 'doing':
-                sql = `select ${temp}  where start_time <= ${time} and end_time > ${time} and advance=1`;
+                sql = `select (select count(*) from activity where activity.start_time > ${time} and activity.advance=1 ) as total,
+                ${temp} where start_time > ${time} and advance=1 
+                order by start_time desc
+                limit ${start_num}, ${page_size}
+                `;
                 break;
             case 'done':
-                sql = `select ${temp}  where end_time <= ${time} and advance=1`;
+                sql = `select
+                (select count(id) from activity  where end_time <= ${time} and advance=1  ) as total,
+                ${temp}  where end_time <= ${time} and advance=1 
+                order by start_time 
+                limit ${start_num}, ${page_size} 
+                `;
                 break;
             default:
                 ret = '传入的参数值错误';
@@ -100,10 +108,17 @@ class ActiveService extends Service {
         }
         if (sql.length > 10) {
             ret = await app.mysql.query(sql);
+            if (!ret) return { msg: '错误' };
+            let total = 0;
             if (ret[0]) {
+                total = ret[0].total;
                 changeRet(ret);
+                ret.forEach(item => {
+                    delete item.total;
+                });
             }
-            return ret;
+
+            return { act: ret, total };
         }
         return { error: ret };
     }
@@ -120,7 +135,7 @@ class ActiveService extends Service {
                             `;
                     break;
                 case 'room':
-                    sql = `select ${temp}  where room_id=${params.id}`;
+                    sql = `select ${temp}  where activity.room_id=${params.id}`;
                     break;
 
                 default:
@@ -175,12 +190,18 @@ class ActiveService extends Service {
     }
     // 更新预发布的活动
     async updateActiveById(activeInfo) {
-        const { id, title, content, files, start_time, end_time } = activeInfo;
+        let { id, title, content, files, start_time, end_time, join_users, place } = activeInfo;
+        join_users = JSON.parse(join_users || '[]');
+        if (typeof join_users === 'string') {
+            join_users = JSON.parse(join_users || '[]');
+        }
         const sql = `
-            update activity set 
+            update activity set
             title='${title}',
             content='${content}',
             files='${files}',
+            place='${place}',
+            join_users='${JSON.stringify(join_users)}',
             start_time='${start_time}',
             end_time='${end_time}' where id=${id} and advance=0
         `;
@@ -196,9 +217,9 @@ class ActiveService extends Service {
             msg: '修改失败',
         };
     }
-    // 预发布活动
+    // 发布 或则 保存草稿 活动
     async createActive(activeInfo) {
-        const { title, content, files, start_time, leader_id, room_id, join_users, end_time } = activeInfo;
+        const { title, content, files, start_time, leader_id, room_id, join_users, advance, place } = activeInfo;
         const ret = await this.app.mysql.insert('activity', {
             title,
             content,
@@ -206,8 +227,10 @@ class ActiveService extends Service {
             leader_id,
             join_users,
             room_id,
+            place,
             start_time,
-            end_time,
+            end_time: start_time,
+            advance,
         });
         if (ret.affectedRows === 1) {
             return {
@@ -246,7 +269,7 @@ class ActiveService extends Service {
             msg: '删除失败',
         };
     }
-    // 获取活动发起者的预发布活动
+    // 获取活动发起者的草稿活动
     async getAdvanceByUserId() {
         const { ctx, app } = this;
         const { id, role_id } = ctx.state.user;
@@ -269,36 +292,19 @@ class ActiveService extends Service {
             msg: '权限不足',
         };
     }
-    // 发布预发布的活动
+    // 发布草稿的活动
     async issueAdvance(id) {
         const { ctx, app } = this;
         const { role_id } = ctx.state.user;
-        if (role_id > 1) {
-            const ret = await app.mysql.get('activity', {
+        if (role_id >= 2) {
+            const ret = await app.mysql.update('activity', {
                 id,
+                advance: 1,
             });
-            if (ret.id && ret.advance === 0) {
-                const join_users = JSON.parse(ret.join_users || '[]');
-                let trueNum = 0;
-                join_users.forEach(item => {
-                    if (item.is_ok) {
-                        trueNum++;
-                    }
-                });
-                if (trueNum > join_users.length / 2) {
-                    const issueRet = await app.mysql.update('activity', {
-                        id,
-                        advance: 1,
-                    });
-                    if (issueRet.affectedRows === 1) {
-                        return {
-                            msg: '发布成功',
-                        };
-                    }
-                    return issueRet;
-                }
+            if (ret.affectedRows === 1) {
                 return {
-                    msg: '活动未通过，不能发布',
+                    id: parseInt(id),
+                    msg: '发布成功',
                 };
             }
             return {
@@ -311,26 +317,28 @@ class ActiveService extends Service {
     }
     // 获取个人活动
     async getPersonActives(params) {
-        let { user_id, room_id, advance } = params;
+        let { user_id, room_id, type, current_page, page_size } = params;
+        const start_num = (current_page - 1) * page_size;
         user_id = parseInt(user_id);
         room_id = parseInt(room_id);
         const { app } = this;
         let ret;
-        if (advance !== undefined && advance !== null) {
-            ret = await app.mysql.select('activity', {
-                where: {
-                    room_id,
-                    advance,
-                },
-                orders: [['start_time', 'desc']],
-            });
+        if (type === 'done') {
+            const sql = `
+                select * from activity  where room_id=${room_id} and start_time<${Date.now()} and advance=1
+                order by start_time desc
+            `;
+            ret = await app.mysql.query(sql);
+        } else if (type === 'will') {
+            const sql = `
+            select * from activity where room_id=${room_id} and start_time>${Date.now()} and advance=1
+            order by start_time desc
+             `;
+            ret = await app.mysql.query(sql);
         } else {
-            ret = await app.mysql.select('activity', {
-                where: {
-                    room_id,
-                },
-                orders: [['start_time', 'desc']],
-            });
+            return {
+                msg: '参数错误',
+            };
         }
         if (ret) {
             const myArr = [];
@@ -358,59 +366,25 @@ class ActiveService extends Service {
                 delete item.record_files;
 
             });
-            return myArr;
+            const tempArr = [];
+            for (let i = start_num; i < start_num + page_size; i++) {
+                if (myArr[i]) {
+                    tempArr.push(myArr[i]);
+                }
+            }
+            return { act: tempArr, length: myArr.length };
         }
         return {
             msg: '未知错误',
         };
 
     }
-    // 赞同或则返货活动。
-    async agreeActive(params) {
-        let { user_id, active_id, is_agree } = params;
-        if (typeof is_agree === 'string') {
-            is_agree = JSON.parse(is_agree);
-        }
-        const { app } = this;
-        const ret = await app.mysql.select('activity', {
-            where: {
-                id: active_id,
-                advance: 0,
-            },
-            columns: ['join_users'],
-        });
-        if (ret[0]) {
-            const join_users = JSON.parse(ret[0].join_users);
-            join_users.forEach(item => {
-                if (item.user_id === parseInt(user_id)) {
-                    item.is_ok = is_agree;
-                }
-            });
-            const agree = await app.mysql.update('activity', {
-                id: active_id,
-                join_users: JSON.stringify(join_users),
-            });
-            if (agree.affectedRows === 1) {
-                if (is_agree) {
-                    return {
-                        msg: '赞同此活动',
-                    };
-                }
-                return {
-                    msg: '反对此活动',
-                };
-            }
-            return {
-                msg: '更新失败，未知错误',
-            };
-        }
-        // const ret = await app.mysql.update
-        return {
-            msg: '请检查活动是否是预发布',
-        };
-    }
-    // 根据某一天获取当天所有的活动
+    // 根据某一天，获取当天所有的活动
     async getActivesByDay(time) {
+        const startDate = new Date(parseInt(time));
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(parseInt(time));
+        endDate.setHours(23, 59, 59, 999);
         const { app } = this;
         time = time || 1;
         const sql = `
@@ -425,7 +399,7 @@ class ActiveService extends Service {
             from activity 
             left join user on  user.id=activity.leader_id  
             left join teach_room on  activity.room_id=teach_room.id  
-            where activity.start_time <= ${time} and  activity.end_time >= ${time} and advance=1
+            where activity.start_time >= ${startDate.getTime()} and  activity.start_time <= ${endDate.getTime()} and advance=1
         `;
         const ret = await app.mysql.query(sql);
         if (ret) {

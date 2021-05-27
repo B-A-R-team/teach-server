@@ -9,6 +9,8 @@ module.exports = app => {
   const { router, controller } = app;
   const jwt = app.middleware.jwt(app.config.jwt);
   router.get('/user/getAllUsers', jwt, controller.user.index.getAllUsers);
+  router.get('/user/like', jwt, controller.user.index.findLikeAllUsers);
+  router.get('/user/noroom', jwt, controller.user.index.getNoRoomUsers);
   router.post('/user/register', controller.user.index.register);
   router.post('/user/login', controller.user.index.login);
   router.get('/user/getUserById', controller.user.index.getUserById);

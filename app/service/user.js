@@ -28,16 +28,29 @@ const sqlTemp = `
 class UserService extends Service {
     async findAll(params) {
         const { startNum, pageSize } = params;
-        const roomNum = await this.app.mysql.query('select count(*) as length from user');
         const sql = `select 
         ${sqlTemp}
         limit ${startNum},${pageSize}
         `;
         const users = await this.app.mysql.query(sql);
-        return { users, length: roomNum[0].length };
+        const nums = await this.app.mysql.query('select FOUND_ROWS() as total from user');
+        if (users) {
+            if (users.length > 0) {
+                return { users, length: nums[0].total };
+            }
+            return {
+                msg: '暂无用户',
+            };
+        }
+        return {
+            msg: '错误',
+        };
     }
     async register(info) {
-        const { username, password, job_id, phone } = info;
+        const { username, password, job_id, phone, room_id } = info;
+        if (!username || !password || !job_id) {
+            return { msg: '参数值有误' };
+        }
         const jobRet = await this.app.mysql.get('user', {
             job_id,
         });
@@ -50,6 +63,7 @@ class UserService extends Service {
                 password: md5(password + secret),
                 job_id,
                 phone,
+                room_id,
             });
         return ret;
     }
@@ -123,6 +137,30 @@ class UserService extends Service {
             msg: '请不要做出这种行为',
         };
 
+    }
+    async findLikeAllUsers({ username }) {
+        const sql = `
+            select 
+            ${sqlTemp}
+            where user.name like '%${username}%'
+          
+        `;
+        const ret = await this.app.mysql.query(sql);
+        if (ret) {
+            return ret;
+        }
+        return {
+            msg: '查询失败',
+        };
+    }
+    async findNoRoomUsers() {
+        const { app, ctx } = this;
+        const { role_id } = ctx.state.user;
+        const sql = `
+            select * from user where room_id is null and role_id <= ${role_id};
+         `;
+        const ret = await app.mysql.query(sql);
+        return ret;
     }
 }
 

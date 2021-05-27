@@ -19,5 +19,22 @@ class RoleController extends Controller {
             data: ret,
         };
     }
+    async getAllRoles() {
+        const { ctx } = this;
+        const ret = await ctx.service.role.getAllRoles();
+        ctx.body = {
+            code: 200,
+            data: ret,
+        };
+    }
+    async updateRole() {
+        const { ctx } = this;
+        const params = ctx.request.body;
+        const ret = await ctx.service.role.updateRole(params);
+        ctx.body = {
+            code: 200,
+            data: ret,
+        };
+    }
 }
 module.exports = RoleController;
