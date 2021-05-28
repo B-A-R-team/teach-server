@@ -8,7 +8,7 @@
 module.exports = app => {
   const { router, controller } = app;
   const jwt = app.middleware.jwt(app.config.jwt);
-  router.get('/room/getAll', jwt, controller.room.index.getAllRoom);
+  router.get('/room/getAll', controller.room.index.getAllRoom);
   router.get('/room/users', jwt, controller.room.index.findLikeByRoom);
   router.get('/noroom/users', jwt, controller.room.index.findNoRoomUsers);
   router.get('/room/info', jwt, controller.room.index.getRoomInfo);

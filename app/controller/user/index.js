@@ -35,7 +35,7 @@ class UserController extends Controller {
     } else {
       ctx.body = {
         code: 500,
-        ret,
+        data: ret,
       };
     }
 
